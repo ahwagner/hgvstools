@@ -34,6 +34,19 @@ chr4:1803564-1803564
 4:1803564-1803564
 ```
 
+### Get a dictionary with all info relevant to a protein, cdna, or genomic description
+```python
+>>> v1.g.info
+{'edit_type': 'substitution', 'strand': '1', 'ref': 'C', 'start': '1803564', 'chromosome': '4', 'alt': 'T',
+ 'id': 'ENST00000352904', 'stop': '1803564'}
+>>> v1.c.info
+{'alt': 'T', 'stop': '742', 'edit_type': 'substitution', 'id': 'ENST00000352904', 'ref': 'C', 'predicted': False, 
+ 'start': '742'}
+>>> v1.p.info
+{'predicted': False, 'start': '248', 'edit_type': 'substitution', 'alt': 'C', 'stop': '248', 'ref': 'R',
+ 'id': 'ENSP00000231803'}
+```
+
 ## Example
 ```python
 >>> from hgvs_tools import Variant

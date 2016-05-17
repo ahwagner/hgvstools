@@ -45,8 +45,7 @@ class HgvsBase:
              'ref': self.ref,
              'alt': self.alt,
              'edit_type': self.edit_type,
-             'predicted': self.predicted,
-             'hgvs': self.hgvs}
+             'predicted': self.predicted}
         return d
 
 
@@ -97,8 +96,7 @@ class G(C):
              'alt': self.alt,
              'chromosome': self.chromosome,
              'strand': self.strand,
-             'edit_type': self.edit_type,
-             'hgvs': self.hgvs}
+             'edit_type': self.edit_type}
         return d
 
     @property
@@ -303,4 +301,4 @@ class Variant:
 
 if __name__ == '__main__':
     v = Variant('FGFR3:p.R248C', reference_assembly=37)
-    print(v.g.ensembl)
+    print(v.p.info)
