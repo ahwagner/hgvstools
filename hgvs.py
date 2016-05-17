@@ -77,10 +77,16 @@ class G(C):
         self.stop = str(stop)
         self.ref = str(ref)
         self.alt = str(alt)
-        self.chromosome = chromosome
+        self.chromosome = chromosome.lower()
         self.strand = str(strand)
         self.edit_type = edit_type
         self._validate()
+
+    def _validate(self):
+        valid_chromosome = re.compile(r'(?:chr)?\d+')
+        return all((super()._validate(),
+                    valid_chromosome.match(self.chromosome),
+                    self.strand in ('1', '-1')))
 
     @property
     def info(self):
@@ -101,6 +107,15 @@ class G(C):
             chromosome = 'chr' + self.chromosome
         else:
             chromosome = self.chromosome
+        return str('{}:{}-{}'.format(chromosome, self.start, self.stop))
+
+    @property
+    def ensembl(self):
+        non_integer = re.compile(r'[^\d]')
+        if self.chromosome.isnumeric():
+            chromosome = self.chromosome
+        else:
+            chromosome = non_integer.sub('', self.chromosome)
         return str('{}:{}-{}'.format(chromosome, self.start, self.stop))
 
 
@@ -288,4 +303,4 @@ class Variant:
 
 if __name__ == '__main__':
     v = Variant('FGFR3:p.R248C', reference_assembly=37)
-    print(v)
+    print(v.g.ensembl)
