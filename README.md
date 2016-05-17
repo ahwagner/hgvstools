@@ -34,7 +34,7 @@ chr4:1803564-1803564
 4:1803564-1803564
 ```
 
-### Get a dictionary with all info relevant to a protein, cdna, or genomic description
+### Get a dictionary with info about a protein, cdna, or genomic description
 ```python
 >>> v1.g.info
 {'edit_type': 'substitution', 'strand': '1', 'ref': 'C', 'start': '1803564', 'chromosome': '4', 'alt': 'T',
