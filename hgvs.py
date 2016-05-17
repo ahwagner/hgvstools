@@ -1,7 +1,7 @@
 import re
 import requests
-from Bio.Data import CodonTable
-from Bio.SeqUtils import seq1, seq3
+# from Bio.Data import CodonTable
+# from Bio.SeqUtils import seq1, seq3
 
 __author__ = 'Alex H Wagner'
 
