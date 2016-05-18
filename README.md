@@ -1,8 +1,7 @@
-# HGVS Tools
+# HGVS Tools [![Build Status](https://travis-ci.org/ahwagner/hgvs_tools.svg?branch=master)](https://travis-ci.org/ahwagner/hgvs_tools)
 
-The HGVS Tools enable rapid forward and reverse translation between protein, cDNA, and genomic HGVS variant
-descriptions. HGVS Tools provides reasonable rules for inferring transcripts from ambiguous identifiers, simplifying the
-process of 
+**HGVS Tools** enables rapid forward and reverse translation between protein, cDNA, and genomic HGVS variant
+descriptions. In addition, it provides reasonable rules for inferring transcripts from ambiguous identifiers, automating the process of concordant, unambiguous transcript selection.
 
 ## Usage
 
@@ -34,7 +33,7 @@ chr4:1803564-1803564
 4:1803564-1803564
 ```
 
-### Get a dictionary with all info relevant to a protein, cdna, or genomic description
+### Get a dictionary with info about a protein, cdna, or genomic description
 ```python
 >>> v1.g.info
 {'edit_type': 'substitution', 'strand': '1', 'ref': 'C', 'start': '1803564', 'chromosome': '4', 'alt': 'T',
