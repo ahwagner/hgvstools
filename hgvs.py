@@ -1,8 +1,9 @@
 import re
 import requests
 import string
-# from Bio.Data import CodonTable
-# from Bio.SeqUtils import seq1, seq3
+from Bio.PDB.Polypeptide import aa1, aa3
+from Bio.SeqUtils import seq1
+from Bio.Seq import reverse_complement
 
 __author__ = 'Alex H Wagner'
 
@@ -17,25 +18,29 @@ class HgvsBase:
         self.alt = str(alt)
         self.edit_type = edit_type
         self.predicted = predicted
-        if not self._validate():
-            raise ValueError
+        self._validate()
+
+    ref_regex = re.compile(r'[ACTG]+$')
+    alt_regex = ref_regex
+    start_regex = re.compile(r'[\d+-]+$')
+    stop_regex = start_regex
 
     def _validate(self):
-        if self.edit_type == 'substitution':
-            return all((self.ref_seq_id.isalnum(),
-                        self.ref.isalpha(),
-                        self.start.isnumeric(),
-                        self.stop.isnumeric(),
-                        self.alt.isalpha()))
-        else:
-            return False
+        if self.edit_type not in ['substitution']:
+            raise ValueError('Edit type {} not currently supported.'.format(self.edit_type))
+        if not self.ref_seq_id.isalnum():
+            raise ValueError('Expected only alphanumerics in ref_seq_id ({}).'.format(self.ref_seq_id))
+        if not self.ref_regex.match(self.ref):
+            raise ValueError('Unexpected ref sequence format.'.format(self.ref))
+        if not self.start_regex.match(self.start):
+            raise ValueError('Unexpected start position format.'.format(self.start))
+        if not self.stop_regex.match(self.stop):
+            raise ValueError('Unexpected stop position format.'.format(self.stop))
+        if not self.alt_regex.match(self.alt):
+            raise ValueError('Unexpected alt sequence format.'.format(self.alt))
 
     def __repr__(self):
         return self.hgvs
-
-    @property
-    def hgvs(self):
-        raise NotImplementedError
 
     @property
     def info(self):
@@ -51,70 +56,101 @@ class HgvsBase:
 
 class P(HgvsBase):
 
+    ref_regex = re.compile('[{}]+$'.format(aa1))
+    three_letter_regex = re.compile('({})+$'.format('|'.join(['({})'.format(x) for x in aa3])), re.I)
+    alt_regex = ref_regex
+
+    def __init__(self, ref_seq_id, start, stop, ref, alt, edit_type, predicted=False):
+
+        if self.three_letter_regex.match(ref) and self.three_letter_regex.match(alt):
+            ref = seq1(ref)
+            alt = seq1(alt)
+        super().__init__(ref_seq_id, start, stop, ref, alt, edit_type, predicted)
+
+
     @property
     def hgvs(self):
         if self.edit_type == 'substitution':
             return "{}:p.{}{}{}".format(self.ref_seq_id, self.ref, self.start, self.alt)
 
+    ref_regex = re.compile(r'')
+
 class C(HgvsBase):
 
     prefix = 'c'
+
+    def __init__(self, ref_seq_id, start, stop, strand, ref, alt, edit_type, predicted=False):
+        self.strand = str(strand)
+        super().__init__(ref_seq_id, start, stop, ref, alt, edit_type, predicted=False)
+
+    def _validate(self):
+        super()._validate()
+        if self.strand not in ('1', '-1'):
+            raise ValueError("Expected strand info ({}) to be 1 or -1.".format(self.strand))
+            # TODO: Add support for '+' / '-' as well
+
 
     @property
     def hgvs(self):
         if self.edit_type == 'substitution':
             return "{}:{}.{}{}>{}".format(self.ref_seq_id, self.prefix, self.start, self.ref, self.alt)
 
+    @property
+    def info(self):
+        d = super().info
+        d['strand'] = self.strand
+        return d
+
 
 class G(C):
 
     prefix = 'g'
 
-    def __init__(self, ref_seq_id, chromosome, start, stop, strand, ref, alt, edit_type):
-        self.ref_seq_id = ref_seq_id
+    def __init__(self, chromosome, start, stop, ref, alt, edit_type):
+        self.ref_seq_id = chromosome
         self.start = str(start)
         self.stop = str(stop)
         self.ref = str(ref)
         self.alt = str(alt)
-        self.chromosome = chromosome.lower()
-        self.strand = str(strand)
         self.edit_type = edit_type
         self._validate()
 
     def _validate(self):
-        valid_chromosome = re.compile(r'(?:chr)?\d+')
-        return all((super()._validate(),
-                    valid_chromosome.match(self.chromosome),
-                    self.strand in ('1', '-1')))
+        HgvsBase._validate(self)
+        chromosome_pattern = re.compile(r'(?:CHR)?([MTXY\d]+)')
+        if chromosome_pattern.match(self.ref_seq_id):
+            self.ref_seq_id = chromosome_pattern.match(self.ref_seq_id).group(1)
+        else:
+            raise ValueError("Expected chromosome ({}) to match regex /(chr)?[mtxy\d]+/i.".format(self.ref_seq_id))
 
     @property
     def info(self):
-        d = {'id': self.ref_seq_id,
-             'start': self.start,
+        d = {'start': self.start,
              'stop': self.stop,
              'ref': self.ref,
              'alt': self.alt,
-             'chromosome': self.chromosome,
-             'strand': self.strand,
+             'chromosome': self.ref_seq_id,
              'edit_type': self.edit_type}
         return d
 
     @property
     def ucsc(self):
-        if self.chromosome.isnumeric():
-            chromosome = 'chr' + self.chromosome
-        else:
-            chromosome = self.chromosome
-        return str('{}:{}-{}'.format(chromosome, self.start, self.stop))
+        return str('{}:{}-{}'.format('chr' + self.ref_seq_id, self.start, self.stop))
 
     @property
     def ensembl(self):
-        non_integer = re.compile(r'[^\d]')
-        if self.chromosome.isnumeric():
-            chromosome = self.chromosome
-        else:
-            chromosome = non_integer.sub('', self.chromosome)
-        return str('{}:{}-{}'.format(chromosome, self.start, self.stop))
+        return str('{}:{}-{}'.format(self.ref_seq_id, self.start, self.stop))
+
+    # The chromosome property allows users to intuitively grab the expected chromosome string from G objects.
+    # self.ref_seq_id is maintained to seamlessly inherit the hgvs property from the C class.
+
+    @property
+    def chromosome(self):
+        return self.ref_seq_id
+
+    @chromosome.setter
+    def chromosome(self, value):
+        self.ref_seq_id = value
 
 
 class Variant:
@@ -126,6 +162,14 @@ class Variant:
 
     def __repr__(self):
         return self.hgvs
+
+    @property
+    def ucsc(self):
+        return self.g.ucsc
+
+    @property
+    def ensembl(self):
+        return self.g.ensembl
 
     @property
     def hgvs(self):
@@ -201,6 +245,7 @@ class Variant:
             self.c = C(t['transcript_id'],
                        t['cds_start'],
                        t['cds_end'],
+                       t['strand'],
                        t['codons'].split('/')[0].translate(str.maketrans('', '', string.ascii_lowercase)),
                        t['codons'].split('/')[1].translate(str.maketrans('', '', string.ascii_lowercase)),
                        self.edit_type)
@@ -213,20 +258,23 @@ class Variant:
     def _c_to_g(self):
         t = self._map_cds_to_genome()
 
-        self.g = G(self.c.ref_seq_id,
-                   t['seq_region_name'],
+        if self.c.strand == '-1':
+            ref = reverse_complement(self.c.ref)
+            alt = reverse_complement(self.c.alt)
+        else:
+            ref = self.c.ref
+            alt = self.c.alt
+        self.g = G(t['seq_region_name'],
                    t['start'],
                    t['end'],
-                   t['strand'],
-                   self.c.ref,
-                   self.c.alt,
+                   ref,
+                   alt,
                    self.edit_type)
 
     def _c_to_p(self):
         t_info = self._get_transcript_info(self.c.ref_seq_id)
         p_id = t_info['Translation']['id']
-        self.p = None  #TODO: Go from Ensembl ID and coordinates to a protein change. Use BioPython and http://goo.gl/40sMGm
-
+        self.p = None  # TODO: Go from Ensembl ID and coordinates to a protein change. Use BioPython and http://goo.gl/40sMGm
 
     def _get_transcript_info(self, transcript_id):
         """Return a dictionary conforming to the responses here: http://rest.ensembl.org/documentation/info/lookup"""
@@ -300,5 +348,6 @@ class Variant:
 
 
 if __name__ == '__main__':
-    v = Variant('FGFR3:p.R248C', reference_assembly=37)
-    print(v.p.info)
+    v = Variant('ALK:p.F1174I', reference_assembly=37)
+    print(v)
+    print(v.g.ensembl)
