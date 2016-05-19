@@ -161,7 +161,7 @@ class Variant:
     _session = requests.Session()
 
     def __repr__(self):
-        return self.hgvs
+        return str(self.hgvs)
 
     @property
     def ucsc(self):
@@ -178,9 +178,6 @@ class Variant:
     @property
     def info(self):
         return self.g.info, self.c.info, self.p.info
-
-    def __str__(self):
-        return str(self.__repr__())
 
     def __init__(self, hgvs=None, reference_assembly='current', species='human'):
         self.local = False  # TODO: Add support for local annotation files
