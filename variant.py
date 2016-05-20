@@ -4,7 +4,7 @@ import string
 from Bio.PDB.Polypeptide import aa1, aa3
 from Bio.SeqUtils import seq1
 from Bio.Seq import reverse_complement, Seq
-from Bio.Alphabet import generic_protein
+from Bio.Alphabet import generic_protein, generic_dna
 
 __author__ = 'Alex H Wagner'
 
@@ -19,6 +19,7 @@ class HgvsBase:
         self.alt = str(alt)
         self.edit_type = edit_type
         self.predicted = predicted
+        self.seq = None
         self._validate()
 
     ref_regex = re.compile(r'[ACTG]+$')
@@ -85,6 +86,14 @@ class P(HgvsBase):
     @property
     def stop_pos(self):
         return re.sub('[^0-9]', '', self.stop)
+
+    @property
+    def start_res(self):
+        return re.sub('[^A-Za-z]', '', self.start)
+
+    @property
+    def stop_res(self):
+        return re.sub('[^A-Za-z]', '', self.stop)
 
     @property
     def hgvs(self):
@@ -389,15 +398,31 @@ class Variant:
             result.append(i)
         if len(result) > 1:
             result = sorted(result, key=lambda x: transcripts[x]['transcript_id'], reverse=True)
+            try:
+                result = sorted(result, key=lambda x: transcripts[x]['version'])
+            except KeyError:
+                pass
+            try:
+                result = sorted(result, key=lambda x: transcripts[x]['is_canonical'])
+            except KeyError:
+                pass
             result = sorted(result, key=lambda x: transcripts[x]['polyphen_score'])
             best = result[-1]
         elif len(result) == 1:
             best = result[0]
         elif len(result) == 0 and len(backup) > 0:
-            result = sorted(backup, key=lambda x: transcripts[x]['transcript_id'], reverse=True)
+            result = sorted(result, key=lambda x: transcripts[x]['transcript_id'], reverse=True)
+            try:
+                result = sorted(result, key=lambda x: transcripts[x]['version'])
+            except KeyError:
+                pass
+            try:
+                result = sorted(result, key=lambda x: transcripts[x]['is_canonical'])
+            except KeyError:
+                pass
             best = result[-1]
         else:
-            raise ValueError("No matching transcripts in VEP response!")
+            raise ValueError("No matching transcripts from Ensembl!")
         t = transcripts[best]
         if 'codons' in t:
             (t['ref'], t['alt']) = t['codons'].translate(str.maketrans('', '', string.ascii_lowercase)).split('/')
@@ -408,11 +433,20 @@ class Variant:
 
     def _select_p_compatible_transcripts(self, transcripts):
         out = list()
-        for transcript in transcripts:
+        for i, transcript in transcripts:
             if transcript['biotype'] != 'protein_coding':
                 continue
             protein_id = transcript['Translation']['id']
-            protein_seq = self._get_sequence(protein_id)
+            transcript['p_seq'] = Seq(self._get_sequence(protein_id), generic_protein)
+            try:
+                transcript['protein_start'] = self.p.start_pos
+                transcript['protein_end'] = self.p.stop_pos
+                transcript['polyphen_score'] = -1
+                if transcript['p_seq'][int(self.p.start_pos) - 1] == self.p.start_res:
+                    out.append(transcript)
+            except IndexError:
+                continue
+        return out
 
     def _get_sequence(self, seq_id):
         if not self.local:
@@ -424,7 +458,7 @@ class Variant:
             except requests.HTTPError as e:
                 msg = e.response.content.decode()
                 raise ValueError('Ensembl sequence query failed: {}'.format(msg))
-            return Seq(resp.json()['seq'], generic_protein)
+            return resp.json()['seq']
         else:
             raise ValueError('Local annotations not yet supported.')
 
