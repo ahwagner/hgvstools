@@ -1,5 +1,5 @@
 from unittest import TestCase
-import hgvs
+import variant
 
 __author__ = 'Alex H Wagner'
 
@@ -7,8 +7,10 @@ __author__ = 'Alex H Wagner'
 class TestVariant(TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.p_sub = hgvs.Variant('FGFR3:p.R248C', reference_assembly=37)
-        cls.p_sub_neg = hgvs.Variant('ALK:p.F1174I', reference_assembly=37)
+        cls.p_sub = variant.Variant('FGFR3:p.R248C', reference_assembly=37)
+        cls.p_sub_neg = variant.Variant('ALK:p.F1174I', reference_assembly=37)
+        # cls.p_ins_def = variant.Variant('ERBB2:p.P780_Y781insGSP', reference_assembly=37)
+        # cls.p_ins_undef = variant.Variant('FLT3:p.P606_R607ins15', reference_assembly=37)
 
     def test_p_sub_to_c(self):
         assert self.p_sub.c.hgvs == 'ENST00000352904:c.742C>T'
@@ -31,3 +33,6 @@ class TestVariant(TestCase):
         assert self.p_sub_neg.hgvs == ('2:g.29443697A>T',
                                        'ENST00000389048:c.3520T>A',
                                        'ENSP00000373700:p.F1174I')
+
+    def test_p_ins_to_c(self):
+        pass  # TODO: Figure out what this should be.

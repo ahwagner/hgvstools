@@ -9,7 +9,7 @@ descriptions. In addition, it provides reasonable rules for inferring transcript
 You may construct a variant object directly from an HGVS string, using Chromosome names, HGNC Gene Symbols, or Ensembl
 Transcript or Protein IDs.
 ```python
->>> from hgvs_tools import Variant
+>>> from hgvstools.variant import Variant
 >>> v1 = Variant('FGFR3:p.R248C')
 >>> v2 = Variant('9:g.22125504G>C')
 >>> v3 = Variant('ENST00000003084:c.1431_1433delTTC')
