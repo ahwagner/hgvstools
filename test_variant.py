@@ -7,6 +7,7 @@ class TestVariant(TestCase):
     def setUpClass(cls):
         cls.p_sub = variant.Variant('FGFR3:p.R248C', reference_assembly=37)
         cls.p_sub_neg = variant.Variant('ALK:p.F1174I', reference_assembly=37)
+        cls.p_sub_no_vep = variant.Variant('ALK:p.F1174I', reference_assembly=37, no_VEP=True)
         # cls.p_ins_def = variant.Variant('ERBB2:p.P780_Y781insGSP', reference_assembly=37)
         # cls.p_ins_undef = variant.Variant('FLT3:p.P606_R607ins15', reference_assembly=37)
 
@@ -31,6 +32,9 @@ class TestVariant(TestCase):
         assert self.p_sub_neg.hgvs == ('2:g.29443697A>T',
                                        'ENST00000389048:c.3520T>A',
                                        'ENSP00000373700:p.F1174I')
+
+    def test_no_vep_genomic_equivalence(self):
+        assert self.p_sub_neg.g.info == self.p_sub_no_vep.g.info
 
     def test_p_ins_to_c(self):
         pass  # TODO: Figure out what this should be.

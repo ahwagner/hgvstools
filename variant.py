@@ -6,7 +6,7 @@ from Bio.SeqUtils import seq1
 from Bio.Seq import reverse_complement, Seq
 from Bio.Alphabet import generic_protein, generic_dna
 from data import reverseCodonTable
-from seqtools import ham_dist
+from difflib import SequenceMatcher
 
 
 class HgvsBase:
@@ -21,6 +21,12 @@ class HgvsBase:
         self.predicted = predicted
         self.seq = None
         self._validate()
+
+    def __eq__(self, other):
+        self.hgvs == other.hgvs
+
+    def hgvs(self):
+        raise NotImplementedError
 
     ref_regex = re.compile(r'[ACTG]+$')
     alt_regex = ref_regex
@@ -215,6 +221,7 @@ class Variant:
         self.p = kwargs.get('P', None)
         self.c = kwargs.get('C', None)
         self.g = kwargs.get('G', None)
+        self._test_no_VEP = kwargs.get('no_VEP', False)
         if reference_assembly == 'current':
             self._subdomain = ''
         elif isinstance(reference_assembly, int):
@@ -230,6 +237,9 @@ class Variant:
             # TODO: add checks for self.c, .g, .p, and fill in missing.
         else:
             self._parse_hgvs(hgvs)
+
+    def __eq__(self, other):
+        return self.hgvs == other.hgvs
 
     def _parse_hgvs(self, hgvs):
         m = self._primary_regex.match(hgvs)
@@ -371,6 +381,8 @@ class Variant:
             try:
                 r = self._vep_hgvs_rest(hgvs)
                 transcripts = r['transcript_consequences']
+                if self._test_no_VEP:
+                    self._vep_hgvs_rest('ERBB2:p.P780_Y781insGSP')  # This is for testing purposes only.
             except requests.HTTPError as e:
                 msg = e.response.content.decode()
                 try:
@@ -427,11 +439,8 @@ class Variant:
         if 'codons' in t:
             (t['ref'], t['alt']) = t['codons'].translate(str.maketrans('', '', string.ascii_lowercase)).split('/')
         else:
-            # infer ref and alt
             t['cds_seq'] = Seq(self._get_sequence(t['transcript_id'], type='cds'), generic_dna)
-            t['ref'], t['alt'] = self._smallest_parsimonious_change(t['cds_seq'])
-
-            raise ValueError('Not implemented!')
+            t['ref'], t['alt'] = self._get_parsimonious_ref_and_alt(t['cds_seq'])
         return t
 
     def _select_p_compatible_transcripts(self, transcripts):
@@ -445,6 +454,8 @@ class Variant:
             try:
                 transcript['protein_start'] = self.p.start_pos
                 transcript['protein_end'] = self.p.stop_pos
+                transcript['cds_start'] = (int(self.p.start_pos) - 1) * 3 + 1
+                transcript['cds_end'] = (int(self.p.stop_pos) - 1) * 3 + 1
                 transcript['polyphen_score'] = -1
                 transcript['transcript_id'] = transcript['id']
                 if transcript['p_seq'][int(self.p.start_pos) - 1] == self.p.start_res:
@@ -469,18 +480,33 @@ class Variant:
         else:
             raise ValueError('Local annotations not yet supported.')
 
-    def _smallest_parsimonious_change(self, cds_seq):
+    def _get_parsimonious_ref_and_alt(self, cds_seq):
+        """
+        Return an inferred reference and alternate sequence corresponding to the protein change described by self.p.
+        This sequence may be one of many possible sequences corresponding to the protein change.
+        """
         if self.edit_type == 'substitution':
-            cds_start = (self.p.start_pos - 1) * 3
+            cds_start = (int(self.p.start_pos) - 1) * 3
             ref_codon = cds_seq[cds_start:cds_start+3].upper()
-            alt_codons = reverseCodonTable[self.p.start_res]
-            min_dist = 4
+            alt_codons = reverseCodonTable[self.p.alt]
+            max_ratio = 0
             for codon in alt_codons:
-                dist = ham_dist(ref_codon, codon)
-                if dist < min_dist:
-                    min_dist = dist
+                s = SequenceMatcher(a=ref_codon, b=codon)
+                ratio = s.ratio()
+                if ratio > max_ratio:
+                    max_ratio = ratio
                     alt_codon = codon
-            return ref_codon, alt_codon
+                    changes = [x for x in s.get_opcodes() if x[0] != 'equal']
+            if len(changes) != 1:
+                raise ValueError('Expected exactly one change!')
+            elif changes[0][0] != 'replace':
+                raise ValueError('Expected a substitution!')
+            else:
+                changes = changes[0]
+            return ref_codon[changes[1]:changes[2]], alt_codon[changes[3]:changes[4]]
+        elif self.edit_type == 'insertion':
+
+            return '-'  # TODO: change to ref, alt
         else:
             raise ValueError('Not implemented!')
 
