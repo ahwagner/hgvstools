@@ -1,4 +1,4 @@
-# HGVS Tools [![Build Status](https://travis-ci.org/ahwagner/hgvs_tools.svg?branch=master)](https://travis-ci.org/ahwagner/hgvs_tools)
+# HGVS Tools [![Build Status](https://travis-ci.org/ahwagner/hgvstools.svg?branch=master)](https://travis-ci.org/ahwagner/hgvstools)
 
 **HGVS Tools** enables rapid forward and reverse translation between protein, cDNA, and genomic HGVS variant
 descriptions. In addition, it provides reasonable rules for inferring transcripts from ambiguous identifiers, automating the process of concordant, unambiguous transcript selection.
