@@ -5,8 +5,8 @@ from Bio.PDB.Polypeptide import aa1, aa3
 from Bio.SeqUtils import seq1
 from Bio.Seq import reverse_complement, Seq
 from Bio.Alphabet import generic_protein, generic_dna
-
-__author__ = 'Alex H Wagner'
+from data import reverseCodonTable
+from seqtools import ham_dist
 
 
 class HgvsBase:
@@ -428,31 +428,38 @@ class Variant:
             (t['ref'], t['alt']) = t['codons'].translate(str.maketrans('', '', string.ascii_lowercase)).split('/')
         else:
             # infer ref and alt
+            t['cds_seq'] = Seq(self._get_sequence(t['transcript_id'], type='cds'), generic_dna)
+            t['ref'], t['alt'] = self._smallest_parsimonious_change(t['cds_seq'])
+
             raise ValueError('Not implemented!')
         return t
 
     def _select_p_compatible_transcripts(self, transcripts):
         out = list()
-        for i, transcript in transcripts:
+        for i, transcript in enumerate(transcripts):
             if transcript['biotype'] != 'protein_coding':
                 continue
             protein_id = transcript['Translation']['id']
             transcript['p_seq'] = Seq(self._get_sequence(protein_id), generic_protein)
+            self.p.seq = transcript['p_seq']
             try:
                 transcript['protein_start'] = self.p.start_pos
                 transcript['protein_end'] = self.p.stop_pos
                 transcript['polyphen_score'] = -1
+                transcript['transcript_id'] = transcript['id']
                 if transcript['p_seq'][int(self.p.start_pos) - 1] == self.p.start_res:
                     out.append(transcript)
             except IndexError:
                 continue
         return out
 
-    def _get_sequence(self, seq_id):
+    def _get_sequence(self, seq_id, **kwargs):
         if not self.local:
             try:
                 url = 'http://{}rest.ensembl.org/sequence/id/{}?content-type=application/json'\
                         .format(self._subdomain, seq_id)
+                for k, v in kwargs.items():
+                    url = ';'.join([url, "{}={}".format(k, v)])
                 resp = self._session.get(url)
                 resp.raise_for_status()
             except requests.HTTPError as e:
@@ -461,6 +468,21 @@ class Variant:
             return resp.json()['seq']
         else:
             raise ValueError('Local annotations not yet supported.')
+
+    def _smallest_parsimonious_change(self, cds_seq):
+        if self.edit_type == 'substitution':
+            cds_start = (self.p.start_pos - 1) * 3
+            ref_codon = cds_seq[cds_start:cds_start+3].upper()
+            alt_codons = reverseCodonTable[self.p.start_res]
+            min_dist = 4
+            for codon in alt_codons:
+                dist = ham_dist(ref_codon, codon)
+                if dist < min_dist:
+                    min_dist = dist
+                    alt_codon = codon
+            return ref_codon, alt_codon
+        else:
+            raise ValueError('Not implemented!')
 
     def _map_cds_to_genome(self):
         if not self.local:

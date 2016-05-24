@@ -1,8 +1,6 @@
 from unittest import TestCase
 import variant
 
-__author__ = 'Alex H Wagner'
-
 
 class TestVariant(TestCase):
     @classmethod
