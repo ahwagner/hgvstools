@@ -382,7 +382,8 @@ class Variant:
                 r = self._vep_hgvs_rest(hgvs)
                 transcripts = r['transcript_consequences']
                 if self._test_no_VEP:
-                    self._vep_hgvs_rest('ERBB2:p.P780_Y781insGSP')  # This is for testing purposes only.
+                    self._vep_hgvs_rest('ERBB2:p.P780_Y781insGSP')
+                    # This is for testing purposes only, and will raise an exception.
             except requests.HTTPError as e:
                 msg = e.response.content.decode()
                 try:
@@ -440,7 +441,7 @@ class Variant:
             (t['ref'], t['alt']) = t['codons'].translate(str.maketrans('', '', string.ascii_lowercase)).split('/')
         else:
             t['cds_seq'] = Seq(self._get_sequence(t['transcript_id'], type='cds'), generic_dna)
-            t['ref'], t['alt'] = self._get_parsimonious_ref_and_alt(t['cds_seq'])
+            t['ref'], t['alt'], t['cds_start'], t['cds_end'] = self._get_parsimonious_ref_and_alt(t['cds_seq'])
         return t
 
     def _select_p_compatible_transcripts(self, transcripts):
@@ -493,20 +494,26 @@ class Variant:
             for codon in alt_codons:
                 s = SequenceMatcher(a=ref_codon, b=codon)
                 ratio = s.ratio()
-                if ratio > max_ratio:
+                if ratio > max_ratio or \
+                   (ratio == max_ratio and len([x for x in s.get_opcodes() if x[0] != 'equal']) < len(changes)):
                     max_ratio = ratio
                     alt_codon = codon
                     changes = [x for x in s.get_opcodes() if x[0] != 'equal']
             if len(changes) != 1:
-                raise ValueError('Expected exactly one change!')
+                raise ValueError('Expected exactly one change, got {}!'.format(changes))
             elif changes[0][0] != 'replace':
                 raise ValueError('Expected a substitution!')
             else:
                 changes = changes[0]
-            return ref_codon[changes[1]:changes[2]], alt_codon[changes[3]:changes[4]]
+            return ref_codon[changes[1]:changes[2]], alt_codon[changes[3]:changes[4]], \
+                   cds_start + changes[1] + 1, cds_start + changes[2]
         elif self.edit_type == 'insertion':
-
-            return '-'  # TODO: change to ref, alt
+            if self.p.alt.isnumeric():
+                alt = "({})".format(int(self.p.alt) * 3)
+            else:
+                for char in self.p.alt:
+                    raise NotImplementedError  # TODO: Left off here
+            return '-', alt
         else:
             raise ValueError('Not implemented!')
 

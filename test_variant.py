@@ -8,8 +8,7 @@ class TestVariant(TestCase):
         cls.p_sub = variant.Variant('FGFR3:p.R248C', reference_assembly=37)
         cls.p_sub_neg = variant.Variant('ALK:p.F1174I', reference_assembly=37)
         cls.p_sub_no_vep = variant.Variant('ALK:p.F1174I', reference_assembly=37, no_VEP=True)
-        # cls.p_ins_def = variant.Variant('ERBB2:p.P780_Y781insGSP', reference_assembly=37)
-        # cls.p_ins_undef = variant.Variant('FLT3:p.P606_R607ins15', reference_assembly=37)
+        cls.p_sub_alt_position = variant.Variant('ALK:p.F1174L', reference_assembly=37)
 
     def test_p_sub_to_c(self):
         assert self.p_sub.c.hgvs == 'ENST00000352904:c.742C>T'
@@ -35,6 +34,13 @@ class TestVariant(TestCase):
 
     def test_no_vep_genomic_equivalence(self):
         assert self.p_sub_neg.g.info == self.p_sub_no_vep.g.info
+
+    def test_alternate_codon_no_match(self):
+        assert self.p_sub_neg.g.info['start'] != self.p_sub_alt_position.g.info['start']
+
+    def test_alternate_codon_position(self):
+        assert self.p_sub_alt_position.g.info['start'] == '29443695'
+        # assert self.p_sub_alt_position.g.info['stop']  == '29443695'
 
     def test_p_ins_to_c(self):
         pass  # TODO: Figure out what this should be.
