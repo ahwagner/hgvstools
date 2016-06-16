@@ -5,7 +5,7 @@ from Bio.PDB.Polypeptide import aa1, aa3
 from Bio.SeqUtils import seq1
 from Bio.Seq import reverse_complement, Seq
 from Bio.Alphabet import generic_protein, generic_dna
-from data import reverseCodonTable
+from .data import reverseCodonTable
 from difflib import SequenceMatcher
 
 
